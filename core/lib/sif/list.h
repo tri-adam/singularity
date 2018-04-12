@@ -14,6 +14,9 @@
  * except according to the terms contained in the LICENSE.md file.
  */
 
+#ifndef __SINGULARITY_SIF_LIST_H_
+#define __SINGULARITY_SIF_LIST_H_
+
 typedef struct Node Node;
 struct Node{
 	void *elem;
@@ -29,3 +32,5 @@ void listaddtail(Node *head, Node *new);
 Node *listfind(Node *head, void *elem, Searchfn fn);
 Node *listdelete(Node *head, void *elem, Searchfn fn);
 int listforall(Node *head, Actionfn fn, void *data);
+
+#endif /* __SINGULARITY_SIF_LIST_H_ */

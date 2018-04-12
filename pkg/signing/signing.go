@@ -6,13 +6,14 @@ import (
 	"crypto"
 	"crypto/sha512"
 	"fmt"
-	"github.com/singularityware/singularity/pkg/image"
-	"golang.org/x/crypto/openpgp"
-	"golang.org/x/crypto/openpgp/clearsign"
-	"golang.org/x/crypto/openpgp/packet"
 	"log"
 	"os"
 	"path/filepath"
+
+	"github.com/singularityware/singularity/core/lib/sif"
+	"golang.org/x/crypto/openpgp"
+	"golang.org/x/crypto/openpgp/clearsign"
+	"golang.org/x/crypto/openpgp/packet"
 )
 
 // routine that outputs signature type (applies to vindex operation)
@@ -184,16 +185,16 @@ func SyPgpPathCheck() error {
 	return nil
 }
 
-func SifDataObjectHash(sinfo *image.Sifinfo) (*bytes.Buffer, error) {
+func SifDataObjectHash(sinfo *sif.Sifinfo) (*bytes.Buffer, error) {
 	var msg = new(bytes.Buffer)
 
-	part, err := image.SifGetPartition(sinfo, image.SIF_DEFAULT_GROUP)
+	part, err := sif.SifGetPartition(sinfo, sif.SIF_DEFAULT_GROUP)
 	if err != nil {
 		log.Println(err)
 		return nil, err
 	}
 
-	data, err := image.CByteRange(sinfo.Mapstart(), part.FileOff(), part.FileLen())
+	data, err := sif.CByteRange(sinfo.Mapstart(), part.FileOff(), part.FileLen())
 	if err != nil {
 		log.Println(err)
 		return nil, err
@@ -205,10 +206,10 @@ func SifDataObjectHash(sinfo *image.Sifinfo) (*bytes.Buffer, error) {
 	return msg, nil
 }
 
-func SifAddSignature(sinfo *image.Sifinfo, signature []byte) error {
-	var e image.Eleminfo
+func SifAddSignature(sinfo *sif.Sifinfo, signature []byte) error {
+	var e sif.Eleminfo
 
-	part, err := image.SifGetPartition(sinfo, image.SIF_DEFAULT_GROUP)
+	part, err := sif.SifGetPartition(sinfo, sif.SIF_DEFAULT_GROUP)
 	if err != nil {
 		log.Println(err)
 		return err
@@ -216,7 +217,7 @@ func SifAddSignature(sinfo *image.Sifinfo, signature []byte) error {
 
 	e.InitSignature(signature, part)
 
-	if err := image.SifPutDataObj(&e, sinfo); err != nil {
+	if err := sif.SifPutDataObj(&e, sinfo); err != nil {
 		log.Println(err)
 		return err
 	}
@@ -274,12 +275,12 @@ func Sign(cpath string) error {
 	}
 	decryptKey(k)
 
-	var sinfo image.Sifinfo
-	if err = image.SifLoad(cpath, &sinfo, 0); err != nil {
+	var sinfo sif.Sifinfo
+	if err = sif.SifLoad(cpath, &sinfo, 0); err != nil {
 		log.Println(err)
 		return err
 	}
-	defer image.SifUnload(&sinfo)
+	defer sif.SifUnload(&sinfo)
 
 	msg, err := SifDataObjectHash(&sinfo)
 	if err != nil {
@@ -309,25 +310,25 @@ func Sign(cpath string) error {
 }
 
 func Verify(cpath string) error {
-	var sinfo image.Sifinfo
-	if err := image.SifLoad(cpath, &sinfo, 0); err != nil {
+	var sinfo sif.Sifinfo
+	if err := sif.SifLoad(cpath, &sinfo, 0); err != nil {
 		log.Println(err)
 		return err
 	}
-	defer image.SifUnload(&sinfo)
+	defer sif.SifUnload(&sinfo)
 
 	msg, err := SifDataObjectHash(&sinfo)
 	if err != nil {
 		return err
 	}
 
-	sig, err := image.SifGetSignature(&sinfo)
+	sig, err := sif.SifGetSignature(&sinfo)
 	if err != nil {
 		log.Println(err)
 		return err
 	}
 
-	data, err := image.CByteRange(sinfo.Mapstart(), sig.FileOff(), sig.FileLen())
+	data, err := sif.CByteRange(sinfo.Mapstart(), sig.FileOff(), sig.FileLen())
 	if err != nil {
 		log.Println(err)
 		return err

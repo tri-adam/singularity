@@ -14,6 +14,7 @@
  */
 
 #define _GNU_SOURCE
+#define __USE_GNU 1
 
 #include <sys/mman.h>
 #include <sys/types.h>

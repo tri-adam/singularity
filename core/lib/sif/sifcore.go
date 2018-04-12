@@ -15,9 +15,9 @@ package sif
 
 #include <uuid/uuid.h>
 
-#include <sif/list.h>
-#include <sif/sif.h>
-#include <sif/sifaccess.h>
+#include <list.h>
+#include <sif.h>
+#include <sifaccess.h>
 
 int
 fill_sigeinfo(void *signature, int siglen, Eleminfo *e, Sifpartition *desc)

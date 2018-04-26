@@ -5,15 +5,18 @@
   consult LICENSE file distributed with the sources of this project regarding
   your rights to use or distribute this software.
 */
+
 package build
 
 import (
 	"archive/tar"
 	"compress/gzip"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -27,7 +30,9 @@ import (
 	"github.com/singularityware/singularity/pkg/image"
 )
 
-// ===== Docker =====
+// NewDockerProvisioner returns a provisioner that can create a sandbox from a
+// docker registry URL. The provisioner uses containers/image for retrieval
+// and opencontainers/image-tools for OCI compliant extraction.
 func NewDockerProvisioner(src string) (p *DockerProvisioner, err error) {
 	p = &DockerProvisioner{}
 
@@ -55,6 +60,9 @@ func NewDockerProvisioner(src string) (p *DockerProvisioner, err error) {
 	return p, nil
 }
 
+// DockerProvisioner returns can create a sandbox from a
+// docker registry URL. The provisioner uses containers/image for retrieval
+// and opencontainers/image-tools for OCI compliant extraction.
 type DockerProvisioner struct {
 	src       string
 	srcRef    types.ImageReference
@@ -63,6 +71,9 @@ type DockerProvisioner struct {
 	policyCtx *signature.PolicyContext
 }
 
+// Provision a sandbox from a docker container reference using
+// source and destination information set on the DockerProvisioner
+// struct previously
 func (p *DockerProvisioner) Provision(i *image.Sandbox) (err error) {
 	defer os.RemoveAll(p.tmpfs)
 
@@ -163,22 +174,55 @@ func (p *DockerProvisioner) insertRunScript(i *image.Sandbox, ociConfig imgspecv
 		return
 	}
 
-	_, err = f.WriteString(strings.Join(ociConfig.Entrypoint, " "))
-	if err != nil {
-		return
+	if len(ociConfig.Entrypoint) > 0 {
+		_, err = f.WriteString("OCI_ENTRYPOINT=\"" + strings.Join(ociConfig.Entrypoint, " ") + "\"\n")
+		if err != nil {
+			return
+		}
+	} else {
+		_, err = f.WriteString("OCI_ENTRYPOINT=\"\"\n")
+		if err != nil {
+			return
+		}
 	}
 
-	_, err = f.WriteString(" ")
-	if err != nil {
-		return
+	if len(ociConfig.Cmd) > 0 {
+		_, err = f.WriteString("OCI_CMD=\"" + strings.Join(ociConfig.Cmd, " ") + "\"\n")
+		if err != nil {
+			return
+		}
+	} else {
+		_, err = f.WriteString("OCI_CMD=\"\"\n")
+		if err != nil {
+			return
+		}
 	}
 
-	_, err = f.WriteString(strings.Join(ociConfig.Cmd, " "))
-	if err != nil {
-		return
-	}
+	_, err = f.WriteString(`# ENTRYPOINT only - run entrypoint plus args
+if [ -z "$OCI_CMD" ] && [ -n "$OCI_ENTRYPOINT" ]; then
+    SINGULARITY_OCI_RUN="${OCI_ENTRYPOINT} $@"
+fi
 
-	_, err = f.WriteString("\n")
+# CMD only - run CMD or override with args
+if [ -n "$OCI_CMD" ] && [ -z "$OCI_ENTRYPOINT" ]; then
+    if [ $# -gt 0 ]; then
+        SINGULARITY_OCI_RUN="$@"
+    else
+        SINGULARITY_OCI_RUN="${OCI_CMD}"
+    fi
+fi
+
+# ENTRYPOINT and CMD - run ENTRYPOINT with CMD as default args
+# override with user provided args
+if [ $# -gt 0 ]; then
+    SINGULARITY_OCI_RUN="${OCI_ENTRYPOINT} $@"
+else
+    SINGULARITY_OCI_RUN="${OCI_ENTRYPOINT} ${OCI_CMD}"
+fi
+
+exec $SINGULARITY_OCI_RUN
+
+`)
 	if err != nil {
 		return
 	}
@@ -228,6 +272,9 @@ func (p *DockerProvisioner) insertEnv(i *image.Sandbox, ociConfig imgspecv1.Imag
 // Untar takes a destination path and a reader; a tar reader loops over the tarfile
 // creating the file structure at 'dst' along the way, and writing any files
 func Untar(dst string, r io.Reader) error {
+
+	dstAbs := path.Clean(dst)
+
 	gzr, err := gzip.NewReader(r)
 	defer gzr.Close()
 	if err != nil {
@@ -255,7 +302,13 @@ func Untar(dst string, r io.Reader) error {
 		}
 
 		// the target location where the dir/file should be created
-		target := filepath.Join(dst, header.Name)
+		target := filepath.Join(dstAbs, header.Name)
+
+		// Make sure the target is inside the destination
+		targetAbs := path.Clean(target)
+		if !strings.HasPrefix(targetAbs, dstAbs) {
+			return fmt.Errorf("attempt to extract file %s outside of destination %s", header.Name, dst)
+		}
 
 		// the following switch could also be done using fi.Mode(), not sure if there
 		// a benefit of using one vs. the other.

@@ -121,7 +121,7 @@ func (b *RemoteBuilder) Build() (err error) {
 		for {
 			_, message, err := c.ReadMessage()
 			if err != nil {
-				glog.Infoln("read:", err)
+				//glog.Infoln("read:", err)
 				return
 			}
 			fmt.Printf("%s\n", message)
@@ -147,7 +147,7 @@ func (b *RemoteBuilder) Build() (err error) {
 			}
 			return nil
 		case _ = <-done:
-			glog.Infoln("Woohoo Your build complete! ")
+			//glog.Infoln("Woohoo Your build complete! ")
 			b.doStatusRequest()
 			b.doPullRequest()
 			return nil
@@ -229,7 +229,7 @@ func (b *RemoteBuilder) doPullRequest() {
 		os.Exit(1)
 	}
 
-	glog.Infof("Pulling image from %v to %v...", b.ResponseData.ImageURL, b.ImagePath)
+	fmt.Printf("Pulling image from %v to %v...", b.ResponseData.ImageURL, b.ImagePath)
 
 	// Save image file to disk
 	imageFile, err := os.OpenFile(b.ImagePath, os.O_RDWR|os.O_CREATE, 0755)
@@ -239,7 +239,7 @@ func (b *RemoteBuilder) doPullRequest() {
 	io.Copy(imageFile, b.Responses[pull].Body)
 	imageFile.Close()
 
-	glog.Infof("done!\n")
+	fmt.Printf("done!\n")
 }
 
 /* ==================================================================================== */

@@ -105,6 +105,7 @@ var SingularityCmd = &cobra.Command{
 	Long:          docs.SingularityLong,
 	Example:       docs.SingularityExample,
 	SilenceErrors: true,
+	SilenceUsage:  true,
 }
 
 // ExecuteSingularity adds all child commands to the root command and sets
@@ -118,7 +119,18 @@ func ExecuteSingularity() {
 	os.Setenv("USER_PATH", userEnv)
 
 	os.Setenv("PATH", defaultEnv)
-	if err := SingularityCmd.Execute(); err != nil {
+	if cmd, err := SingularityCmd.ExecuteC(); err != nil {
+		if str := err.Error(); strings.Contains(str, "unknown flag: ") {
+			flag := strings.TrimPrefix(str, "unknown flag: ")
+			SingularityCmd.Printf("Invalid flag %q for command %q.\n\nOptions:\n\n%s\n",
+				flag,
+				cmd.Name(),
+				cmd.Flags().FlagUsagesWrapped(getColumns()))
+		} else {
+			SingularityCmd.Println(cmd.UsageString())
+		}
+		SingularityCmd.Printf("Run '%s --help' for more detailed usage information.\n",
+			cmd.CommandPath())
 		os.Exit(1)
 	}
 }

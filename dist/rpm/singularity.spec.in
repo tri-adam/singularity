@@ -28,7 +28,7 @@
 %undefine _debugsource_packages
 
 Summary: Application and environment virtualization
-Name: singularity
+Name: singularitypro31
 Version: @PACKAGE_VERSION@
 Release: @PACKAGE_RELEASE@%{?dist}
 # https://spdx.org/licenses/BSD-3-Clause-LBNL.html

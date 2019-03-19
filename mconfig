@@ -32,8 +32,8 @@ tgtobjcopy=
 hststatic=0
 tgtstatic=0
 
-package_name=singularity
-package_version=`(git describe --match 'v[0-9]*' --dirty --always 2>/dev/null || cat VERSION 2>/dev/null || echo "") | sed -e "s/^v//;s/-/_/g;s/_/-/;s/_/./g"`
+package_name="Singularity PRO"
+package_version=3.1
 
 with_network=1
 with_suid=1

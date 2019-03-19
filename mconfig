@@ -32,7 +32,7 @@ tgtobjcopy=
 hststatic=0
 tgtstatic=0
 
-package_name="Singularity PRO"
+package_name="SingularityPRO"
 package_version=3.1
 
 with_network=1

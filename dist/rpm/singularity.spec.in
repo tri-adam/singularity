@@ -22,6 +22,7 @@
 # 
 
 %define singgopath src/github.com/sylabs/singularity
+%{!?_rel:%{expand:%%global _rel @PACKAGE_RELEASE@}}
 
 # Disable debugsource packages; otherwise it ends up with an empty %files
 #   file in debugsourcefiles.list on Fedora
@@ -30,7 +31,7 @@
 Summary: Application and environment virtualization
 Name: singularitypro31
 Version: @PACKAGE_VERSION@
-Release: @PACKAGE_RELEASE@%{?dist}
+Release: %{_rel}%{?dist}
 # https://spdx.org/licenses/BSD-3-Clause-LBNL.html
 License: BSD-3-Clause-LBNL
 URL: https://www.sylabs.io/singularity/

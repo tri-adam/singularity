@@ -69,13 +69,18 @@ func (e *EngineOperations) prepareUserCaps() error {
 		return err
 	}
 
-	caps, _ := capabilities.Split(e.EngineConfig.GetAddCaps())
+	caps, ignoredCaps := capabilities.Split(e.EngineConfig.GetAddCaps())
+	if len(ignoredCaps) > 0 {
+		sylog.Warningf("won't add unknown capability: %s", strings.Join(ignoredCaps, ","))
+	}
 	caps = append(caps, e.EngineConfig.OciConfig.Process.Capabilities.Permitted...)
 
-	authorizedCaps, _ := capConfig.CheckUserCaps(pw.Name, caps)
-
+	authorizedCaps, unauthorizedCaps := capConfig.CheckUserCaps(pw.Name, caps)
+	if len(unauthorizedCaps) > 0 {
+		sylog.Warningf("not authorized to add capability: %s", strings.Join(unauthorizedCaps, ","))
+	}
 	if len(authorizedCaps) > 0 {
-		sylog.Debugf("User capabilities %v added", authorizedCaps)
+		sylog.Debugf("User capabilities %s added", strings.Join(authorizedCaps, ","))
 		commonCaps = authorizedCaps
 	}
 
@@ -88,14 +93,17 @@ func (e *EngineOperations) prepareUserCaps() error {
 		}
 		authorizedCaps, _ := capConfig.CheckGroupCaps(gr.Name, caps)
 		if len(authorizedCaps) > 0 {
-			sylog.Debugf("%s group capabilities %v added", gr.Name, authorizedCaps)
+			sylog.Debugf("%s group capabilities %s added", gr.Name, strings.Join(authorizedCaps, ","))
 			commonCaps = append(commonCaps, authorizedCaps...)
 		}
 	}
 
 	commonCaps = capabilities.RemoveDuplicated(commonCaps)
 
-	caps, _ = capabilities.Split(e.EngineConfig.GetDropCaps())
+	caps, ignoredCaps = capabilities.Split(e.EngineConfig.GetDropCaps())
+	if len(ignoredCaps) > 0 {
+		sylog.Warningf("won't drop unknown capability: %s", strings.Join(ignoredCaps, ","))
+	}
 	for _, cap := range caps {
 		for i, c := range commonCaps {
 			if c == cap {
@@ -166,13 +174,16 @@ func (e *EngineOperations) prepareRootCaps() error {
 			}
 			caps := capConfig.ListGroupCaps(gr.Name)
 			commonCaps = append(commonCaps, caps...)
-			sylog.Debugf("%s group capabilities %v added", gr.Name, caps)
+			sylog.Debugf("%s group capabilities %s added", gr.Name, strings.Join(caps, ","))
 		}
 	default:
 		e.EngineConfig.OciConfig.SetProcessNoNewPrivileges(true)
 	}
 
-	caps, _ := capabilities.Split(e.EngineConfig.GetAddCaps())
+	caps, ignoredCaps := capabilities.Split(e.EngineConfig.GetAddCaps())
+	if len(ignoredCaps) > 0 {
+		sylog.Warningf("won't add unknown capability: %s", strings.Join(ignoredCaps, ","))
+	}
 	for _, cap := range caps {
 		found := false
 		for _, c := range commonCaps {
@@ -189,7 +200,10 @@ func (e *EngineOperations) prepareRootCaps() error {
 
 	commonCaps = capabilities.RemoveDuplicated(commonCaps)
 
-	caps, _ = capabilities.Split(e.EngineConfig.GetDropCaps())
+	caps, ignoredCaps = capabilities.Split(e.EngineConfig.GetDropCaps())
+	if len(ignoredCaps) > 0 {
+		sylog.Warningf("won't add unknown capability: %s", strings.Join(ignoredCaps, ","))
+	}
 	for _, cap := range caps {
 		for i, c := range commonCaps {
 			if c == cap {

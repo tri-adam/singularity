@@ -6,6 +6,7 @@
 package cli
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"os/signal"
@@ -205,25 +206,8 @@ func pullRun(cmd *cobra.Command, args []string) {
 		}
 		if !exists {
 			sylog.Infof("Converting OCI blobs to SIF format")
-			b, err := build.NewBuild(
-				args[i],
-				build.Config{
-					Dest:   cachedImgPath,
-					Format: "sif",
-					Opts: types.Options{
-						TmpDir:           tmpDir,
-						NoTest:           true,
-						NoHTTPS:          noHTTPS,
-						DockerAuthConfig: authConf,
-					},
-				},
-			)
-			if err != nil {
-				sylog.Fatalf("Unable to create new build: %v", err)
-			}
-
-			if err := b.Full(); err != nil {
-				sylog.Fatalf("Unable to build: %v", err)
+			if err := convertDockerToSIF(args[i], cachedImgPath, tmpDir, noHTTPS, authConf); err != nil {
+				sylog.Fatalf("%v", err)
 			}
 		} else {
 			sylog.Infof("Using cached image")
@@ -251,4 +235,25 @@ func pullRun(cmd *cobra.Command, args []string) {
 	default:
 		sylog.Fatalf("Unsupported transport type: %s", transport)
 	}
+}
+
+func convertDockerToSIF(image, cachedImgPath, tmpDir string, noHTTPS bool, authConf *ocitypes.DockerAuthConfig) error {
+	b, err := build.NewBuild(
+		image,
+		build.Config{
+			Dest:   cachedImgPath,
+			Format: "sif",
+			Opts: types.Options{
+				TmpDir:           tmpDir,
+				NoTest:           true,
+				NoHTTPS:          noHTTPS,
+				DockerAuthConfig: authConf,
+			},
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("Unable to create new build: %v", err)
+	}
+
+	return b.Full()
 }

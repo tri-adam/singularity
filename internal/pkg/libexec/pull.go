@@ -6,11 +6,8 @@
 package libexec
 
 import (
-	"strings"
-
 	"github.com/sylabs/singularity/internal/pkg/build"
 	"github.com/sylabs/singularity/internal/pkg/sylog"
-	"github.com/sylabs/singularity/internal/pkg/util/uri"
 	"github.com/sylabs/singularity/pkg/build/types"
 	library "github.com/sylabs/singularity/pkg/client/library"
 	net "github.com/sylabs/singularity/pkg/client/net"
@@ -43,11 +40,6 @@ func PullShubImage(filePath, shubRef string, force, noHTTPS bool) {
 
 // PullOciImage pulls an OCI image to a sif
 func PullOciImage(path, imageURI string, opts types.Options) {
-	_, imageName := uri.Split(imageURI)
-	if !strings.Contains(imageName, ":") {
-		sylog.Infof("No tag specifyed, using ':latest'")
-	}
-
 	b, err := build.NewBuild(imageURI, path, "sif", "", "", opts)
 	if err != nil {
 		sylog.Fatalf("Unable to pull %v: %v", imageURI, err)

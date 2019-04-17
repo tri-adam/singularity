@@ -35,9 +35,9 @@ func init() {
 var SignCmd = &cobra.Command{
 	DisableFlagsInUseLine: true,
 	Args:                  cobra.ExactArgs(1),
-	PreRun:                sylabsToken,
 
 	Run: func(cmd *cobra.Command, args []string) {
+
 		// args[0] contains image path
 		fmt.Printf("Signing image: %s\n", args[0])
 		if err := doSignCmd(args[0], keyServerURL); err != nil {
@@ -67,5 +67,5 @@ func doSignCmd(cpath, url string) error {
 		id = sifDescID
 	}
 
-	return signing.Sign(cpath, url, id, isGroup, privKey, authToken)
+	return signing.Sign(cpath, id, isGroup, privKey)
 }

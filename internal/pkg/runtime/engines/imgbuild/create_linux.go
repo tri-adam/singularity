@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"syscall"
 
+	"github.com/sylabs/singularity/internal/pkg/build/copy"
 	"github.com/sylabs/singularity/internal/pkg/buildcfg"
 	imgbuildConfig "github.com/sylabs/singularity/internal/pkg/runtime/engines/imgbuild/config"
 	"github.com/sylabs/singularity/internal/pkg/runtime/engines/singularity/rpc/client"
@@ -197,9 +198,8 @@ func (engine *EngineOperations) copyFiles() error {
 		// copy each file into bundle rootfs
 		transfer.Dst = filepath.Join(engine.EngineConfig.Rootfs(), transfer.Dst)
 		sylog.Infof("Copying %v to %v", transfer.Src, transfer.Dst)
-		copy := exec.Command("/bin/cp", "-fLr", transfer.Src, transfer.Dst)
-		if err := copy.Run(); err != nil {
-			return fmt.Errorf("While copying %v to %v: %v", transfer.Src, transfer.Dst, err)
+		if err := copy.Copy(transfer.Src, transfer.Dst); err != nil {
+			return err
 		}
 	}
 

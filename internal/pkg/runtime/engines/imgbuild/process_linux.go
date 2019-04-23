@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"os/user"
 	"strings"
 	"syscall"
 
@@ -102,8 +103,17 @@ func (e *EngineOperations) cleanEnv() {
 	// clean environment
 	e.EngineConfig.OciConfig.Spec.Process.Env = nil
 
+	// During image build process (run typically as root), home destination
+	// is /root
+	homeDest := "/root"
+	usr, err := user.Current()
+
+	if err == nil {
+		homeDest = usr.HomeDir
+	}
+
 	// add relevant environment variables back
-	env.SetContainerEnv(&generator, environment, true, "")
+	env.SetContainerEnv(&generator, environment, true, homeDest)
 
 	// expose build specific environment variables for scripts
 	for _, envVar := range environment {

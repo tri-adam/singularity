@@ -242,17 +242,37 @@ func downloadOciImage(name, imageURI string, cmd *cobra.Command) {
 }
 
 func convertDockerToSIF(image, cachedImgPath, tmpDir string, noHTTPS bool, authConf *ocitypes.DockerAuthConfig) error {
+	//
+	// This build was performed with a different build api in the original commit
+	// I have changed it to use the api relevant in this 3.1.x branch, the functionality
+	// should not have changed. Original code is in commented bellow:
+	//
+	//
+	// b, err := build.NewBuild(
+	// 	image,
+	// 	build.Config{
+	// 		Dest:   cachedImgPath,
+	// 		Format: "sif",
+	// 		Opts: types.Options{
+	// 			TmpDir:           tmpDir,
+	// 			NoTest:           true,
+	// 			NoHTTPS:          noHTTPS,
+	// 			DockerAuthConfig: authConf,
+	// 		},
+	// 	},
+	// )
+
 	b, err := build.NewBuild(
 		image,
-		build.Config{
-			Dest:   cachedImgPath,
-			Format: "sif",
-			Opts: types.Options{
-				TmpDir:           tmpDir,
-				NoTest:           true,
-				NoHTTPS:          noHTTPS,
-				DockerAuthConfig: authConf,
-			},
+		cachedImgPath,
+		"sif",
+		"",
+		"",
+		types.Options{
+			TmpDir:           tmpDir,
+			NoTest:           true,
+			NoHTTPS:          noHTTPS,
+			DockerAuthConfig: authConf,
 		},
 	)
 	if err != nil {

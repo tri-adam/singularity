@@ -46,8 +46,9 @@ func TestPull(t *testing.T) {
 	}{
 		{"Pull_Library", "library://alpine:3.7", false, "", imagePath, true}, // https://cloud.sylabs.io/library
 		{"Force", "library://alpine:3.7", true, "", imagePath, true},
-		{"Pull_Docker", "docker://alpine:3.7", true, "", imagePath, true},   // https://hub.docker.com/
-		{"Pull_Shub", "shub://GodloveD/busybox", true, "", imagePath, true}, // https://singularity-hub.org/
+		{"Pull_Docker", "docker://alpine:3.7", true, "", imagePath, true}, // https://hub.docker.com/
+		// TODO(mem): reenable this; disabled while shub is down
+		// {"Pull_Shub", "shub://GodloveD/busybox", true, "", imagePath, true}, // https://singularity-hub.org/
 		{"PullWithHash", "library://sylabs/tests/signed:sha256.5c439fd262095766693dae95fb81334c3a02a7f0e4dc6291e0648ed4ddc61c6c", true, "", imagePath, true},
 		{"PullWithoutTransportProtocol", "alpine:3.7", true, "", imagePath, true},
 	}

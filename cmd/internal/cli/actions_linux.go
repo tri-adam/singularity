@@ -42,6 +42,10 @@ func convertImage(filename string, unsquashfsPath string) (string, error) {
 	}
 	defer img.File.Close()
 
+	if !img.HasRootFs() {
+		return "", fmt.Errorf("no root filesystem found in %s", filename)
+	}
+
 	// squashfs only
 	if img.Partitions[0].Type != image.SQUASHFS {
 		return "", fmt.Errorf("not a squashfs root filesystem")
@@ -152,6 +156,9 @@ func execStarter(cobraCmd *cobra.Command, image string, args []string, name stri
 	})
 
 	if strings.HasPrefix(image, "instance://") {
+		if name != "" {
+			sylog.Fatalf("Starting an instance from another is not allowed")
+		}
 		instanceName := instance.ExtractName(image)
 		file, err := instance.Get(instanceName, instance.SingSubDir)
 		if err != nil {
@@ -330,7 +337,10 @@ func execStarter(cobraCmd *cobra.Command, image string, args []string, name stri
 		if err != nil {
 			sylog.Fatalf("failed to retrieve user information for UID %d: %s", os.Getuid(), err)
 		}
-		procname = instance.ProcName(name, pwd.Name)
+		procname, err = instance.ProcName(name, pwd.Name)
+		if err != nil {
+			sylog.Fatalf("%s", err)
+		}
 	} else {
 		generator.SetProcessArgs(args)
 		procname = "Singularity runtime parent"

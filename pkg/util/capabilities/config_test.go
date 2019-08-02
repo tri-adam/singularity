@@ -320,6 +320,21 @@ func TestDropUserCaps(t *testing.T) {
 			caps: []string{"CAP_DAC_OVERRIDE"},
 		},
 		capTest{
+			name: "drop non-existent capability from user",
+			old: Config{
+				Users: map[string][]string{
+					"root": {"CAP_SYS_ADMIN"},
+				},
+			},
+			new: Config{
+				Users: map[string][]string{
+					"root": {"CAP_SYS_ADMIN"},
+				},
+			},
+			id:   "root",
+			caps: []string{"CAP_DAC_OVERRIDE"},
+		},
+		capTest{
 			name: "drop existing user multiple caps",
 			old: Config{
 				Users: map[string][]string{
@@ -342,9 +357,7 @@ func TestDropUserCaps(t *testing.T) {
 				},
 			},
 			new: Config{
-				Users: map[string][]string{
-					"root": []string{},
-				},
+				Users: map[string][]string{},
 			},
 			id:   "root",
 			caps: []string{"CAP_SYS_ADMIN", "CAP_DAC_OVERRIDE", "CAP_CHOWN"},
@@ -423,6 +436,21 @@ func TestDropGroupCaps(t *testing.T) {
 			caps: []string{"CAP_DAC_OVERRIDE"},
 		},
 		capTest{
+			name: "drop non-existent capability from group",
+			old: Config{
+				Groups: map[string][]string{
+					"root": {"CAP_SYS_ADMIN"},
+				},
+			},
+			new: Config{
+				Groups: map[string][]string{
+					"root": {"CAP_SYS_ADMIN"},
+				},
+			},
+			id:   "root",
+			caps: []string{"CAP_DAC_OVERRIDE"},
+		},
+		capTest{
 			name: "drop existing group multiple caps",
 			old: Config{
 				Groups: map[string][]string{
@@ -445,9 +473,7 @@ func TestDropGroupCaps(t *testing.T) {
 				},
 			},
 			new: Config{
-				Groups: map[string][]string{
-					"root": []string{},
-				},
+				Groups: map[string][]string{},
 			},
 			id:   "root",
 			caps: []string{"CAP_SYS_ADMIN", "CAP_DAC_OVERRIDE", "CAP_CHOWN"},

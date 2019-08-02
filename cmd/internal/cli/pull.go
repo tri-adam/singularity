@@ -6,14 +6,18 @@
 package cli
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"os/signal"
 	"syscall"
 
+	ocitypes "github.com/containers/image/types"
 	"github.com/spf13/cobra"
 	"github.com/sylabs/singularity/docs"
+	"github.com/sylabs/singularity/internal/pkg/build"
 	"github.com/sylabs/singularity/internal/pkg/client/cache"
+	ociclient "github.com/sylabs/singularity/internal/pkg/client/oci"
 	"github.com/sylabs/singularity/internal/pkg/libexec"
 	"github.com/sylabs/singularity/internal/pkg/sylog"
 	"github.com/sylabs/singularity/internal/pkg/util/uri"
@@ -131,9 +135,11 @@ func pullRun(cmd *cobra.Command, args []string) {
 			imageName = uri.GetName(args[i])
 		}
 		imagePath := cache.LibraryImage(libraryImage.Hash, imageName)
-		if exists, err := cache.LibraryImageExists(libraryImage.Hash, imageName); err != nil {
+		exists, err := cache.LibraryImageExists(libraryImage.Hash, imageName)
+		if err != nil {
 			sylog.Fatalf("unable to check if %v exists: %v", imagePath, err)
-		} else if !exists {
+		}
+		if !exists {
 			sylog.Infof("Downloading library image")
 			if err = client.DownloadImage(imagePath, args[i], PullLibraryURI, true, authToken); err != nil {
 				sylog.Fatalf("unable to Download Image: %v", err)
@@ -168,23 +174,110 @@ func pullRun(cmd *cobra.Command, args []string) {
 		libexec.PullShubImage(name, args[i], force, noHTTPS)
 	case HTTPProtocol, HTTPSProtocol:
 		libexec.PullNetImage(name, args[i], force)
+	case ociclient.IsSupported(transport):
+		downloadOciImage(name, args[i], cmd)
 	default:
-		if !force {
-			if _, err := os.Stat(name); err == nil {
-				sylog.Fatalf("image file already exists - will not overwrite")
-			}
-		}
+		sylog.Fatalf("Unsupported transport type: %s", transport)
+	}
+}
 
-		authConf, err := makeDockerCredentials(cmd)
-		if err != nil {
-			sylog.Fatalf("While creating Docker credentials: %v", err)
+// TODO: This should be a external function
+func downloadOciImage(name, imageURI string, cmd *cobra.Command) {
+	if !force {
+		if _, err := os.Stat(name); err == nil {
+			sylog.Fatalf("Image file already exists - will not overwrite")
 		}
+	}
 
-		libexec.PullOciImage(name, args[i], types.Options{
+	authConf, err := makeDockerCredentials(cmd)
+	if err != nil {
+		sylog.Fatalf("While creating Docker credentials: %v", err)
+	}
+
+	sysCtx := &ocitypes.SystemContext{
+		OCIInsecureSkipTLSVerify:    noHTTPS,
+		DockerInsecureSkipTLSVerify: noHTTPS,
+		DockerAuthConfig:            authConf,
+	}
+
+	sum, err := ociclient.ImageSHA(imageURI, sysCtx)
+	if err != nil {
+		sylog.Fatalf("Failed to get checksum for %s: %s", imageURI, err)
+	}
+
+	imgName := uri.GetName(imageURI)
+	cachedImgPath := cache.OciTempImage(sum, imgName)
+
+	exists, err := cache.OciTempExists(sum, imgName)
+	if err != nil {
+		sylog.Fatalf("Unable to check if %s exists: %s", imgName, err)
+	}
+	if !exists {
+		sylog.Infof("Converting OCI blobs to SIF format")
+		if err := convertDockerToSIF(imageURI, cachedImgPath, tmpDir, noHTTPS, authConf); err != nil {
+			sylog.Fatalf("%v", err)
+		}
+	} else {
+		sylog.Infof("Using cached image")
+	}
+
+	// Perms are 777 *prior* to umask
+	dstFile, err := os.OpenFile(name, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0777)
+	if err != nil {
+		sylog.Fatalf("Unable to open file for writing: %s: %v\n", name, err)
+	}
+	defer dstFile.Close()
+
+	srcFile, err := os.Open(cachedImgPath)
+	if err != nil {
+		sylog.Fatalf("Unable to open file for reading: %s: %v\n", name, err)
+	}
+	defer srcFile.Close()
+
+	// Copy SIF from cache
+	_, err = io.Copy(dstFile, srcFile)
+	if err != nil {
+		sylog.Fatalf("Failed while copying files: %v\n", err)
+	}
+}
+
+func convertDockerToSIF(image, cachedImgPath, tmpDir string, noHTTPS bool, authConf *ocitypes.DockerAuthConfig) error {
+	//
+	// This build was performed with a different build api in the original commit
+	// I have changed it to use the api relevant in this 3.1.x branch, the functionality
+	// should not have changed. Original code is in commented bellow:
+	//
+	//
+	// b, err := build.NewBuild(
+	// 	image,
+	// 	build.Config{
+	// 		Dest:   cachedImgPath,
+	// 		Format: "sif",
+	// 		Opts: types.Options{
+	// 			TmpDir:           tmpDir,
+	// 			NoTest:           true,
+	// 			NoHTTPS:          noHTTPS,
+	// 			DockerAuthConfig: authConf,
+	// 		},
+	// 	},
+	// )
+
+	b, err := build.NewBuild(
+		image,
+		cachedImgPath,
+		"sif",
+		"",
+		"",
+		types.Options{
 			TmpDir:           tmpDir,
-			Force:            force,
+			NoTest:           true,
 			NoHTTPS:          noHTTPS,
 			DockerAuthConfig: authConf,
-		})
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("Unable to create new build: %v", err)
 	}
+
+	return b.Full()
 }

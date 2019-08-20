@@ -10,7 +10,6 @@ import (
 	"net"
 	"os"
 	"os/exec"
-	"os/user"
 	"strings"
 	"syscall"
 
@@ -103,14 +102,10 @@ func (e *EngineOperations) cleanEnv() {
 	// clean environment
 	e.EngineConfig.OciConfig.Spec.Process.Env = nil
 
-	// During image build process (run typically as root), home destination
-	// is /root
+	// during image build process, home destination is /root as
+	// build engine is usable only by root.
+	// BACKPORT OF #4248
 	homeDest := "/root"
-	usr, err := user.Current()
-
-	if err == nil {
-		homeDest = usr.HomeDir
-	}
 
 	// add relevant environment variables back
 	env.SetContainerEnv(&generator, environment, true, homeDest)

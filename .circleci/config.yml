@@ -133,60 +133,6 @@ jobs:
           paths:
             - ~/go/pkg/mod
 
-  go113-stretch:
-    <<: *defaults
-    docker:
-      - image: sylabsio/golang:1.13.1-stretch
-    steps:
-      - attach_workspace:
-          at: ~/go
-      - run:
-          <<: *build_singularity
-      - run:
-          <<: *check_singularity
-
-  go113-alpine:
-    <<: *defaults
-    docker:
-      - image: sylabsio/golang:1.13.1-alpine
-    steps:
-      - attach_workspace:
-          at: ~/go
-      - run:
-          <<: *build_singularity
-      - run:
-          <<: *check_singularity
-
-  go113-macos:
-    macos:
-      xcode: "10.2.0"
-    working_directory: /Users/distiller/go/src/github.com/sylabs/singularity
-    steps:
-      - checkout
-      - run:
-          name: Setup environment
-          command: |-
-            echo 'export GOPATH=$HOME/go'      >> $BASH_ENV
-            echo 'export GOROOT=/usr/local/go' >> $BASH_ENV
-            echo 'export PATH=$GOPATH/bin:$GOROOT/bin:$PATH' >> $BASH_ENV
-      - run:
-          name: Update Go to 1.13.1
-          working_directory: /tmp
-          command: |-
-            curl -LO https://dl.google.com/go/go1.13.1.darwin-amd64.tar.gz
-            sudo rm -rf /usr/local/go
-            sudo tar -C /usr/local -xzf go1.13.1.darwin-amd64.tar.gz
-            sudo ln -s /usr/local/go/bin/go /usr/local/bin/go
-      - run:
-          name: Build Singularity
-          command: |-
-            ./mconfig -v -p /usr/local
-            make -j$(sysctl -n hw.logicalcpu) -C ./builddir all
-      - run:
-          name: Check code
-          command: |-
-            make -j$(sysctl -n hw.logicalcpu) -C ./builddir check
-
   build_check_and_install:
     <<: *vm_defaults
     steps:
@@ -275,13 +221,6 @@ workflows:
       - cache_go_mod:
           requires:
             - get_source
-      - go113-stretch:
-          requires:
-            - cache_go_mod
-      - go113-alpine:
-          requires:
-            - cache_go_mod
-      - go113-macos
       - build_check_and_install:
           requires:
             - cache_go_mod

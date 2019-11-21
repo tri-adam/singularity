@@ -21,33 +21,21 @@
 # 
 # 
 
-%define singgopath src/github.com/sylabs/singularity
-
 # Disable debugsource packages; otherwise it ends up with an empty %files
 #   file in debugsourcefiles.list on Fedora
 %undefine _debugsource_packages
 
 Summary: Application and environment virtualization
-Name: singularity
+Name: singularitypro35
 Version: @PACKAGE_RPM_VERSION@
 Release: @PACKAGE_RELEASE@%{?dist}
 # https://spdx.org/licenses/BSD-3-Clause-LBNL.html
 License: BSD-3-Clause-LBNL
 URL: https://www.sylabs.io/singularity/
+Group: System Environment/Base
 Source: %{name}-@PACKAGE_VERSION@.tar.gz
 ExclusiveOS: linux
-# RPM_BUILD_ROOT wasn't being set ... for some reason
-%if "%{sles_version}" == "11"
-BuildRoot: /var/tmp/singularity-%{version}-build
-%endif
 
-%if "%{_target_vendor}" == "suse"
-%if "%{sles_version}" != "11"
-BuildRequires: go
-%endif
-%else
-BuildRequires: golang
-%endif
 BuildRequires: git
 BuildRequires: gcc
 BuildRequires: make
@@ -89,12 +77,14 @@ mkdir %{name}-%{version}
 %build
 cd %{name}-%{version}
 
-mkdir -p gopath/%{singgopath}
-tar -C "gopath/src/github.com/sylabs/" -xf "%SOURCE0"
-
+# Setup GOPATH for any bin we need etc.
+mkdir -p gopath/
 export GOPATH=$PWD/gopath
 export PATH=$GOPATH/bin:$PATH
-cd $GOPATH/%{singgopath}
+
+# Extract the source
+tar  -xf "%SOURCE0"
+cd %{name}
 
 # Not all of these parameters currently have an effect, but they might be
 #  used someday.  They are the same parameters as in the configure macro.
@@ -121,7 +111,7 @@ cd %{name}-%{version}
 
 export GOPATH=$PWD/gopath
 export PATH=$GOPATH/bin:$PATH
-cd $GOPATH/%{singgopath}/builddir
+cd %{name}/builddir
 
 mkdir -p $RPM_BUILD_ROOT%{_mandir}/man1
 make DESTDIR=$RPM_BUILD_ROOT install man

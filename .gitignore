@@ -1,7 +1,7 @@
 *~
 #*
 *#
-singularity-*.tar.gz
+singularitypro35-*.tar.gz
 *.m4
 *.pyc
 *.swp
@@ -12,7 +12,7 @@ generate_docs
 .idea/
 builddir/
 internal/pkg/buildcfg/config.go
-singularity.spec
+singularitypro35.spec
 trash.lock
 Makefile.in
 autom4te.cache/

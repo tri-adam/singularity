@@ -21,6 +21,12 @@ Vcs-Browser: https://github.com/sylabs/singularity
 Package: singularitypro35
 Architecture: any
 Depends: ${misc:Depends}, ${shlibs:Depends}, cryptsetup-bin, squashfs-tools
+Conflicts:
+ singularity-container,
+ singularitypro24,
+ singularitypro25,
+ singularitypro26,
+ singularitypro31
 Description: container platform focused on supporting "Mobility of Compute"
  Mobility of Compute encapsulates the development to compute model
  where developers can work in an environment of their choosing and

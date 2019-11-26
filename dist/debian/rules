@@ -4,32 +4,57 @@ srcpkg = $(shell LC_ALL=C dpkg-parsechangelog | grep '^Source:' | cut -d ' ' -f 
 debver = $(shell LC_ALL=C dpkg-parsechangelog | grep '^Version:' | cut -d ' ' -f 2,2 )
 uver = $(shell echo $(debver) | cut -d '-' -f 1,1 )
 
-#DH_VERBOSE=1
+DH_VERBOSE=1
 export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 
-PKGDIR=debian/singularity-container
-export SINGULARITY_CACHEDIR=$(PKGDIR)/var/lib/singularity/cache
+PKGDIR=debian/singularitypro35
+export DESTDIR:=$(CURDIR)/$(PKGDIR)
+export HOME:=$(CURDIR)/debian/tmp
+
+# Set a package name for dh-golang equal to the repo name
+# The name doesn't really matter as we aren't doing a GOPATH build
+# and are using modules
+export DH_GOPKG=singularity-pro3
+# Make sure all files are copied into the _build/src dir
+export DH_GOLANG_INSTALL_ALL := 1
+
+# Build out of the main source tree
+BUILDDIR= _build
+SRCDIR = $(BUILDDIR)/src
+
+# Use a GOPATH that's independent of anything that's already set
+export GOPATH=$(CURDIR)/_build/gopath
+
 
 %:
-	dh $@  --with autoreconf
+	dh $@ --builddirectory=$(BUILDDIR) --buildsystem=golang
 
 override_dh_auto_configure:
-	dh_auto_configure -- --localstatedir=/var/lib
+	dh_auto_configure --builddirectory=_build
+# Reset permissions lost in the copy to _build/src on Ubuntu
+	cd $(SRCDIR)/$(DH_GOPKG) && \
+	chmod +x mconfig scripts/* makeit/*
+# Configure the build
+	cd $(SRCDIR)/$(DH_GOPKG) && \
+	./mconfig -v \
+	  -b builddir \
+	  -V $(debver) \
+	  --prefix=/usr \
+	  --sysconfdir=/etc \
+	  --libexecdir=/usr/lib/$(DEB_HOST_MULTIARCH) \
+	  --localstatedir=/var/lib
 
-override_dh_auto_install:
-	dh_auto_install
-	: # move bash completions into now new standard location
-	mv $(PKGDIR)/etc/bash_completion.d $(PKGDIR)/usr/share/bash-completion/completions
-
-override_dh_installman:
-	: # Very sloppy man pages for now
-	debian/generate_manpages $(PKGDIR) $(debver)
-	dh_installman
-
-override_dh_installdocs:
-	dh_installdocs README.md CONTRIBUTORS.md
+override_dh_auto_build:
+	cd $(SRCDIR)/$(DH_GOPKG) && \
+	make -C builddir
 
 override_dh_auto_test:
+
+override_dh_auto_install:
+	cd $(SRCDIR)/$(DH_GOPKG) && \
+	make -C builddir install
+
+override_dh_installman:
 
 override_dh_fixperms:
 	dh_fixperms

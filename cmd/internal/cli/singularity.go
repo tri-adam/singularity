@@ -20,6 +20,7 @@ import (
 	"github.com/sylabs/singularity/internal/pkg/buildcfg"
 	"github.com/sylabs/singularity/internal/pkg/sylog"
 	"github.com/sylabs/singularity/internal/pkg/util/auth"
+	"github.com/sylabs/singularity/internal/pkg/util/fs"
 )
 
 // Global variables for singularity CLI
@@ -31,6 +32,8 @@ var (
 )
 
 var (
+	// confDir holds the user configuration directory
+	confDir string
 	// TokenFile holds the path to the sylabs auth token file
 	defaultTokenFile, tokenFile string
 	// authToken holds the sylabs auth token
@@ -60,7 +63,9 @@ func init() {
 	if err != nil {
 		sylog.Fatalf("Couldn't determine user home directory: %v", err)
 	}
-	defaultTokenFile = path.Join(usr.HomeDir, ".singularity", "sylabs-token")
+
+	confDir = path.Join(usr.HomeDir, ".singularity")
+	defaultTokenFile = path.Join(confDir, "sylabs-token")
 
 	SingularityCmd.Flags().BoolVarP(&debug, "debug", "d", false, "print debugging information (highest verbosity)")
 	SingularityCmd.Flags().BoolVarP(&silent, "silent", "s", false, "only print errors")
@@ -179,6 +184,20 @@ func handleEnv(flag *pflag.Flag) {
 
 func persistentPreRun(cmd *cobra.Command, args []string) {
 	setSylogMessageLevel(cmd, args)
+
+	if fi, err := os.Stat(confDir); err == nil && fi.Mode().Perm() != 0700 {
+		sylog.Debugf("Enforce permission 0700 on %s", confDir)
+		// enforce permission on user configuration directory
+		if err := os.Chmod(confDir, 0700); err != nil {
+			// best effort as chmod could fail for various reasons (eg: readonly FS)
+			sylog.Warningf("Couldn't enforce permission 0700 on %s: %s", confDir, err)
+		}
+	} else if os.IsNotExist(err) {
+		if err := fs.Mkdir(confDir, 0700); err != nil {
+			sylog.Fatalf("Could not create configuration directory %s: %s", confDir, err)
+		}
+	}
+
 	updateFlagsFromEnv(cmd)
 }
 

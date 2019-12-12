@@ -194,7 +194,8 @@ func persistentPreRun(cmd *cobra.Command, args []string) {
 		}
 	} else if os.IsNotExist(err) {
 		if err := fs.Mkdir(confDir, 0700); err != nil {
-			sylog.Fatalf("Could not create configuration directory %s: %s", confDir, err)
+			// warn if directory creation failed (eg: readonly FS)
+			sylog.Warningf("Could not create configuration directory %s: %s", confDir, err)
 		}
 	}
 

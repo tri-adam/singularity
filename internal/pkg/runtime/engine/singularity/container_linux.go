@@ -688,7 +688,16 @@ func (c *container) addRootfsMount(system *mount.System) error {
 		if err := system.Points.AddBind(mount.RootfsTag, rootfs, c.session.RootFsPath(), flags); err != nil {
 			return err
 		}
-		return system.Points.AddRemount(mount.RootfsTag, c.session.RootFsPath(), flags)
+		if err := system.Points.AddRemount(mount.RootfsTag, c.session.RootFsPath(), flags); err != nil {
+			return err
+		}
+		// re-apply mount propagation flag, on EL6 a kernel bug reset propagation flag
+		// and may lead to crash (see https://github.com/sylabs/singularity/issues/4851)
+		flags = syscall.MS_SLAVE
+		if !c.engine.EngineConfig.File.MountSlave {
+			flags = syscall.MS_PRIVATE
+		}
+		return system.Points.AddPropagation(mount.RootfsTag, c.session.RootFsPath(), flags)
 	}
 
 	sylog.Debugf("Mounting block [%v] image: %v\n", mountType, rootfs)
@@ -1426,7 +1435,10 @@ func (c *container) addUserbindsMount(system *mount.System) error {
 		} else if err != nil {
 			return fmt.Errorf("unable to add %s to mount list: %s", src, err)
 		} else {
-			c.session.OverrideDir(dst, src)
+			fi, err := os.Stat(src)
+			if err == nil && fi.IsDir() {
+				c.session.OverrideDir(dst, src)
+			}
 			system.Points.AddRemount(mount.UserbindsTag, dst, flags)
 		}
 	}
@@ -1616,7 +1628,12 @@ func (c *container) addCwdMount(system *mount.System) error {
 	if cwd != current {
 		if c.isLayerEnabled() {
 			linkPath := filepath.Join(c.session.Layer.Dir(), cwd)
-			if err := c.session.AddSymlink(linkPath, current); err != nil {
+			// if the last element is a symlink, duplicate the target
+			target, err := os.Readlink(cwd)
+			if err != nil {
+				target = current
+			}
+			if err := c.session.AddSymlink(linkPath, target); err != nil {
 				return fmt.Errorf("can't create symlink %s: %s", linkPath, err)
 			}
 			return nil

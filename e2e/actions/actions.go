@@ -1198,6 +1198,36 @@ func (c actionTests) actionBinds(t *testing.T) {
 			exit: 255,
 		},
 		{
+			name: "HomeContainOverride",
+			args: []string{
+				"--contain",
+				"--bind", hostCanaryDir + ":/home",
+				sandbox,
+				"test", "-f", "/home/file",
+			},
+			exit: 0,
+		},
+		{
+			name: "TmpContainOverride",
+			args: []string{
+				"--contain",
+				"--bind", hostCanaryDir + ":/tmp",
+				sandbox,
+				"test", "-f", "/tmp/file",
+			},
+			exit: 0,
+		},
+		{
+			name: "VarTmpContainOverride",
+			args: []string{
+				"--contain",
+				"--bind", hostCanaryDir + ":/var/tmp",
+				sandbox,
+				"test", "-f", "/var/tmp/file",
+			},
+			exit: 0,
+		},
+		{
 			name: "SymlinkOneLevelFileBind",
 			args: []string{
 				"--bind", hostCanaryFile + ":/var/etc/symlink1",
@@ -1230,6 +1260,24 @@ func (c actionTests) actionBinds(t *testing.T) {
 				"--bind", hostCanaryDir + ":/var/etc/madness",
 				sandbox,
 				"test", "-f", "/madness/file",
+			},
+			exit: 0,
+		},
+		{
+			name: "SymlinkOneLevelNewDirBind",
+			args: []string{
+				"--bind", hostCanaryDir + ":/var/etc/new",
+				sandbox,
+				"test", "-f", "/etc/new/file",
+			},
+			exit: 0,
+		},
+		{
+			name: "SymlinkTwoLevelNewDirBind",
+			args: []string{
+				"--bind", hostCanaryDir + ":/var/etc/madness/new",
+				sandbox,
+				"test", "-f", "/madness/new/file",
 			},
 			exit: 0,
 		},
@@ -1405,6 +1453,53 @@ func (c actionTests) actionBinds(t *testing.T) {
 	}
 }
 
+func (c actionTests) exitSignals(t *testing.T) {
+	e2e.EnsureImage(t, c.env)
+
+	tests := []struct {
+		name string
+		args []string
+		exit int
+	}{
+		{
+			name: "Exit0",
+			args: []string{c.env.ImagePath, "/bin/sh", "-c", "exit 0"},
+			exit: 0,
+		},
+		{
+			name: "Exit1",
+			args: []string{c.env.ImagePath, "/bin/sh", "-c", "exit 1"},
+			exit: 1,
+		},
+		{
+			name: "Exit134",
+			args: []string{c.env.ImagePath, "/bin/sh", "-c", "exit 134"},
+			exit: 134,
+		},
+		{
+			name: "SignalKill",
+			args: []string{c.env.ImagePath, "/bin/sh", "-c", "kill -KILL $$"},
+			exit: 137,
+		},
+		{
+			name: "SignalAbort",
+			args: []string{c.env.ImagePath, "/bin/sh", "-c", "kill -ABRT $$"},
+			exit: 134,
+		},
+	}
+
+	for _, tt := range tests {
+		c.env.RunSingularity(
+			t,
+			e2e.AsSubtest(tt.name),
+			e2e.WithProfile(e2e.UserProfile),
+			e2e.WithCommand("exec"),
+			e2e.WithArgs(tt.args...),
+			e2e.ExpectExit(tt.exit),
+		)
+	}
+}
+
 // E2ETests is the main func to trigger the test suite
 func E2ETests(env e2e.TestEnv) func(*testing.T) {
 	c := actionTests{
@@ -1421,7 +1516,13 @@ func E2ETests(env e2e.TestEnv) func(*testing.T) {
 		"action basic profiles": c.actionBasicProfiles, // run basic action under different profiles
 		"issue 4488":            c.issue4488,           // https://github.com/sylabs/singularity/issues/4488
 		"issue 4587":            c.issue4587,           // https://github.com/sylabs/singularity/issues/4587
+		"issue 4755":            c.issue4755,           // https://github.com/sylabs/singularity/issues/4755
+		"issue 4768":            c.issue4768,           // https://github.com/sylabs/singularity/issues/4768
+		"issue 4797":            c.issue4797,           // https://github.com/sylabs/singularity/issues/4797
+		"issue 4823":            c.issue4823,           // https://github.com/sylabs/singularity/issues/4823
+		"issue 4836":            c.issue4836,           // https://github.com/sylabs/singularity/issues/4836
 		"network":               c.actionNetwork,       // test basic networking
 		"binds":                 c.actionBinds,         // test various binds
+		"exit and signals":      c.exitSignals,         // test exit and signals propagation
 	})
 }

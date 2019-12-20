@@ -260,19 +260,10 @@ func (m *Manager) sync() error {
 		for p, e := range m.entries {
 			if e == d {
 				path = m.rootPath + p
-				if ovDirs, ok := m.ovDirs[p]; ok {
-					// overrided path, we won't create directories
-					// in the session directory
-					if len(ovDirs) > 1 {
-						path = ""
-					}
-					for i, ovDir := range ovDirs {
-						if _, err := os.Stat(ovDir); err != nil {
-							if i == 0 {
-								path = ovDir
-							} else if err := os.Mkdir(ovDir, m.DirMode); err != nil {
-								return fmt.Errorf("failed to create %s directory: %s", ovDir, err)
-							}
+				for _, ovDir := range m.ovDirs[p] {
+					if _, err := os.Stat(ovDir); err != nil {
+						if err := os.Mkdir(ovDir, m.DirMode); err != nil {
+							return fmt.Errorf("failed to create %s directory: %s", ovDir, err)
 						}
 					}
 				}
@@ -351,12 +342,12 @@ func (m *Manager) sync() error {
 				if !os.IsExist(err) {
 					return fmt.Errorf("failed to create symlink %s: %s", path, err)
 				}
-				// check that current symlink point to the right target
+				// check that current symlink point to the right target if it's a symlink
+				// otherwise we consider the entry as already created no matter if it's a
+				// file, a directory or something else
 				target, err := os.Readlink(path)
 				if err == nil && target != entry.target {
 					return fmt.Errorf("symlink %s point to %s instead of %s", path, target, entry.target)
-				} else if err != nil {
-					return fmt.Errorf("failed to read symlink %s: %s", path, err)
 				}
 				// skip symlink owner change, not created by us
 				entry.created = true

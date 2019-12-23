@@ -86,10 +86,10 @@ rpm: dist
 	      --define '_sysconfdir $(RPMPREFIX)/etc' \
 	      --define '_localstatedir $(RPMPREFIX)/var' \
 	      --define '_mandir $(RPMPREFIX)/share/man' \
-	      $(SOURCEDIR)/singularity-$(VERSION).tar.gz; \
+	      $(SOURCEDIR)/singularitypro35-$(VERSION).tar.gz; \
 	  else \
 	    rpmbuild $(RPMCLEAN) -ta \
-	      $(SOURCEDIR)/singularity-$(VERSION).tar.gz; \
+	      $(SOURCEDIR)/singularitypro35-$(VERSION).tar.gz; \
 	  fi)
 
 .PHONY: cscope

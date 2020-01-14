@@ -25,6 +25,12 @@
 #   file in debugsourcefiles.list on Fedora
 %undefine _debugsource_packages
 
+# Work around RHEL 6.10's dist being '.el6_10', and put it back to the semver
+# compatible '.el6'
+%if 0%{?rhel} == 6
+ %define dist .el6
+%endif
+
 Summary: Application and environment virtualization
 Name: singularitypro35
 Version: @PACKAGE_RPM_VERSION@

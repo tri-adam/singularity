@@ -33,6 +33,7 @@ func (c ctx) testSemanticVersion(t *testing.T) {
 
 		checkSemanticVersionFn := func(t *testing.T, r *e2e.SingularityCmdResult) {
 			outputVer := strings.TrimPrefix(string(r.Stdout), "singularity version ")
+			outputVer = strings.TrimPrefix(outputVer, "SingularityPRO version ")
 			outputVer = strings.TrimSpace(outputVer)
 			if semanticVersion, err := semver.Make(outputVer); err != nil {
 				t.Log(semanticVersion)

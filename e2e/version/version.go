@@ -9,8 +9,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/blang/semver"
-	"github.com/pkg/errors"
 	"github.com/sylabs/singularity/e2e/internal/e2e"
 	"github.com/sylabs/singularity/e2e/internal/testhelper"
 )
@@ -27,34 +25,6 @@ var tests = []struct {
 	{"version flag", []string{"--version"}},
 }
 
-//Test that this version uses the semantic version format
-func (c ctx) testSemanticVersion(t *testing.T) {
-	for _, tt := range tests {
-
-		checkSemanticVersionFn := func(t *testing.T, r *e2e.SingularityCmdResult) {
-			outputVer := strings.TrimPrefix(string(r.Stdout), "singularity version ")
-			outputVer = strings.TrimPrefix(outputVer, "SingularityPRO version ")
-			outputVer = strings.TrimSpace(outputVer)
-			if semanticVersion, err := semver.Make(outputVer); err != nil {
-				t.Log(semanticVersion)
-				t.Errorf("no semantic version valid for %s command", tt.name)
-			}
-		}
-
-		c.env.RunSingularity(
-			t,
-			e2e.WithProfile(e2e.UserProfile),
-			e2e.WithArgs(tt.args...),
-			e2e.PostRun(func(t *testing.T) {
-				if t.Failed() {
-					t.Log("Failed to obtain version")
-				}
-			}),
-			e2e.ExpectExit(0, checkSemanticVersionFn),
-		)
-	}
-}
-
 //Test that both versions when running: singularity --version and
 // singularity version give the same result
 func (c ctx) testEqualVersion(t *testing.T) {
@@ -65,21 +35,9 @@ func (c ctx) testEqualVersion(t *testing.T) {
 			outputVer := strings.TrimPrefix(string(r.Stdout), "singularity version ")
 			outputVer = strings.TrimPrefix(outputVer, "SingularityPRO version ")
 			outputVer = strings.TrimSpace(outputVer)
-			semanticVersion, err := semver.Make(outputVer)
-			if err != nil {
-				err = errors.Wrapf(err, "creating semver version from %q", outputVer)
-				t.Fatalf("Creating semver version: %+v", err)
-			}
 			if tmpVersion != "" {
-				versionTmp, err := semver.Make(tmpVersion)
-				if err != nil {
-					err = errors.Wrapf(err, "creating semver version from %q", tmpVersion)
-					t.Fatalf("Creating semver version: %+v", err)
-				}
-				//compare versions and see if they are equal
-				if semanticVersion.Compare(versionTmp) != 0 {
-					err = errors.Wrapf(err, "comparing versions %q and %q", outputVer, tmpVersion)
-					t.Fatalf("singularity version command and singularity --version give a non-matching version result: %+v", err)
+				if outputVer != tmpVersion {
+					t.Fatalf("singularity version command and singularity --version give a non-matching version result: %s != %s", outputVer, tmpVersion)
 				}
 			} else {
 				tmpVersion = outputVer
@@ -122,8 +80,7 @@ func E2ETests(env e2e.TestEnv) func(*testing.T) {
 	}
 
 	return testhelper.TestRunner(map[string]func(*testing.T){
-		"equal version":    c.testEqualVersion,
-		"help option":      c.testHelpOption,
-		"semantic version": c.testSemanticVersion,
+		"equal version": c.testEqualVersion,
+		"help option":   c.testHelpOption,
 	})
 }

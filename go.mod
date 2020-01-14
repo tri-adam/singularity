@@ -9,7 +9,6 @@ require (
 	github.com/apex/log v1.1.1
 	github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973 // indirect
 	github.com/bitly/go-simplejson v0.5.0 // indirect
-	github.com/blang/semver v3.5.1+incompatible
 	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869 // indirect
 	github.com/bshuster-repo/logrus-logstash-hook v0.4.1 // indirect
 	github.com/buger/jsonparser v0.0.0-20191004114745-ee4c978eae7e

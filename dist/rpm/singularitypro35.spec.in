@@ -62,8 +62,20 @@ BuildRequires: cryptsetup
 # there's no golang for ppc64, just ppc64le
 ExcludeArch: ppc64
 
-Provides: %{name}-runtime
-Obsoletes: %{name}-runtime
+# Conflict with EPEL & SLES packages
+Conflicts: singularity
+Conflicts: singularity-runtime
+
+# Conflict with older PRo
+# Added explictly here, so we can manage release specific conflicts when we move
+# to versioned paths and alternatives for the install.
+Conflicts: singularitypro24
+Conflicts: singularitypro24-runtime
+Conflicts: singularitypro25
+Conflicts: singularitypro25-runtime
+Conflicts: singularitypro26
+Conflicts: singularitypro26-runtime
+Conflicts: singularitypro31
 
 %description
 Singularity provides functionality to make portable

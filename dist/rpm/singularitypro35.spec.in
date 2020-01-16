@@ -148,6 +148,7 @@ make DESTDIR=$RPM_BUILD_ROOT install man
 %dir %{_localstatedir}/singularity
 %dir %{_localstatedir}/singularity/mnt
 %dir %{_localstatedir}/singularity/mnt/session
+%{_mandir}/man1/singularity*
 
 %changelog
 

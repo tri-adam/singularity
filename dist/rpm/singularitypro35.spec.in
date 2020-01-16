@@ -1,5 +1,5 @@
 # 
-# Copyright (c) 2017-2018, SyLabs, Inc. All rights reserved.
+# Copyright (c) 2017-2020, SyLabs, Inc. All rights reserved.
 # Copyright (c) 2017, SingularityWare, LLC. All rights reserved.
 #
 # Copyright (c) 2015-2017, Gregory M. Kurtzer. All rights reserved.
@@ -7,6 +7,7 @@
 # Copyright (c) 2016, The Regents of the University of California, through
 # Lawrence Berkeley National Laboratory (subject to receipt of any required
 # approvals from the U.S. Dept. of Energy).  All rights reserved.
+
 # 
 # This software is licensed under a customized 3-clause BSD license.  Please
 # consult LICENSE file distributed with the sources of this project regarding
@@ -35,8 +36,7 @@ Summary: Application and environment virtualization
 Name: singularitypro35
 Version: @PACKAGE_RPM_VERSION@
 Release: @PACKAGE_RELEASE@%{?dist}
-# https://spdx.org/licenses/BSD-3-Clause-LBNL.html
-License: BSD-3-Clause-LBNL
+License: BSD-3-Clause
 URL: https://www.sylabs.io/singularity/
 Group: System Environment/Base
 Source: %{name}-@PACKAGE_VERSION@.tar.gz
@@ -140,6 +140,7 @@ make DESTDIR=$RPM_BUILD_ROOT install man
 %endif
 
 %files
+%doc %{name}-%{version}/%{name}/examples %{name}-%{version}/%{name}/LICENSE.md %{name}-%{version}/%{name}/LICENSE-LBNL.md
 %attr(4755, root, root) %{_libexecdir}/singularity/bin/starter-suid
 %{_bindir}/singularity
 %{_bindir}/run-singularity
@@ -160,7 +161,6 @@ make DESTDIR=$RPM_BUILD_ROOT install man
 %dir %{_localstatedir}/singularity/mnt
 %dir %{_localstatedir}/singularity/mnt/session
 %{_mandir}/man1/singularity*
-
 
 %changelog
 

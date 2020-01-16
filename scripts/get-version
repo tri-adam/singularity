@@ -25,11 +25,11 @@ if ! ${gitrepo} ; then
 	exit 1
 fi
 
-# gitdesc extracts the closest version tag, removing the leading "v" and
+# gitdesc extracts the closest version tag, removing the leading "pro-" and
 # returning the rest
 gitdesc() {
-	git describe --match='v[0-9]*' --always "$@" 2>/dev/null |
-	sed -e 's,^v,,'
+    git describe --match='pro-[0-9]*' --always "$@" 2>/dev/null |
+	sed -e 's,^pro-,,'
 }
 
 closest_tag=$(gitdesc --abbrev=0 ${head})

@@ -387,14 +387,18 @@ while [ $# -ne 0 ]; do
  esac
 done
 
-# use a colon to provide additional version information such as a
-# release number.
-short_version="`echo "$package_version"|sed 's/:.*//'`"
-release_info="`echo "$package_version"|sed 's/^[^:]*://'`"
+# use a : or @ to provide additional version information such as a
+# release number which we split out for rpm packaging.
+short_version="`echo "$package_version"|sed 's/[:@].*//'`"
+release_info="`echo "$package_version"|sed 's/^[^:@]*[:@]//'`"
 if [ "${short_version}" = "${release_info}" ]; then
 	# $package_version has no colon
 	release_info=1
 fi
+
+# Substitute the @ or : back to a - for the displayed version
+# so the output of --version is version-release, and not version@release
+package_version="`echo "$package_version"|sed 's/[:@]/-/'`"
 
 # non-option param
 if [ $# != 0 ]; then

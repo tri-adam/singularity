@@ -6,8 +6,11 @@
 package singularity
 
 import (
+	"bytes"
 	"context"
 	"crypto"
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -30,8 +33,61 @@ const (
 	invalidFingerPrint = "0000000000000000000000000000000000000000"
 )
 
+// getCertificate returns the certificate read from the specified file.
+func getCertificate(t *testing.T, file string) *x509.Certificate {
+	t.Helper()
+
+	b, err := os.ReadFile(filepath.Join("..", "..", "..", "test", "certs", file))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	p, _ := pem.Decode(b)
+	if p == nil {
+		t.Fatal("failed to decode PEM")
+	}
+
+	c, err := x509.ParseCertificate(p.Bytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return c
+}
+
+// getCertificatePool returns a pool of certificates read from the specified file.
+func getCertificatePool(t *testing.T, file string) *x509.CertPool {
+	t.Helper()
+
+	b, err := os.ReadFile(filepath.Join("..", "..", "..", "test", "certs", file))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pool := x509.NewCertPool()
+
+	for rest := bytes.TrimSpace(b); len(rest) > 0; {
+		var p *pem.Block
+
+		if p, rest = pem.Decode(rest); p == nil {
+			t.Fatal("failed to decode PEM")
+		}
+
+		c, err := x509.ParseCertificate(p.Bytes)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		pool.AddCert(c)
+	}
+
+	return pool
+}
+
 // getTestSignerVerifier returns a fixed test SignerVerifier.
 func getTestSignerVerifier(t *testing.T) signature.SignerVerifier {
+	t.Helper()
+
 	path := filepath.Join("..", "..", "..", "test", "keys", "private.pem")
 
 	sv, err := signature.LoadSignerVerifierFromPEMFile(path, crypto.SHA256, cryptoutils.SkipPassword)
@@ -83,8 +139,13 @@ func (m mockHKP) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func Test_newVerifier(t *testing.T) {
+	cert := getCertificate(t, "leaf.pem")
+	intermediates := getCertificatePool(t, "intermediate.pem")
+	roots := getCertificatePool(t, "root.pem")
+
 	sv := getTestSignerVerifier(t)
-	opts := []client.Option{client.OptBearerToken("token")}
+
+	pgpOpts := []client.Option{client.OptBearerToken("token")}
 
 	tests := []struct {
 		name         string
@@ -95,6 +156,19 @@ func Test_newVerifier(t *testing.T) {
 		{
 			name:         "Defaults",
 			wantVerifier: verifier{},
+		},
+		{
+			name: "OptVerifyWithCertificate",
+			opts: []VerifyOpt{
+				OptVerifyWithCertificate(cert),
+				OptVerifyWithIntermediates(intermediates),
+				OptVerifyWithRoots(roots),
+			},
+			wantVerifier: verifier{
+				certs:         []*x509.Certificate{cert},
+				intermediates: intermediates,
+				roots:         roots,
+			},
 		},
 		{
 			name:         "OptVerifyWithVerifier",
@@ -108,10 +182,10 @@ func Test_newVerifier(t *testing.T) {
 		},
 		{
 			name: "OptVerifyWithPGPOpts",
-			opts: []VerifyOpt{OptVerifyWithPGP(opts...)},
+			opts: []VerifyOpt{OptVerifyWithPGP(pgpOpts...)},
 			wantVerifier: verifier{
 				pgp:     true,
-				pgpOpts: opts,
+				pgpOpts: pgpOpts,
 			},
 		},
 		{
@@ -153,6 +227,10 @@ func Test_newVerifier(t *testing.T) {
 }
 
 func Test_verifier_getOpts(t *testing.T) {
+	cert := getCertificate(t, "leaf.pem")
+	intermediates := getCertificatePool(t, "intermediate.pem")
+	roots := getCertificatePool(t, "root.pem")
+
 	emptyImage, err := sif.LoadContainerFromPath(filepath.Join("..", "..", "..", "test", "images", "empty.sif"),
 		sif.OptLoadWithFlag(os.O_RDONLY),
 	)
@@ -195,6 +273,16 @@ func Test_verifier_getOpts(t *testing.T) {
 			f:       emptyImage,
 			v:       verifier{legacy: true},
 			wantErr: sif.ErrNoObjects,
+		},
+		{
+			name: "Certificate",
+			v: verifier{
+				certs:         []*x509.Certificate{cert},
+				intermediates: intermediates,
+				roots:         roots,
+			},
+			f:        oneGroupImage,
+			wantOpts: 1,
 		},
 		{
 			name: "Verifier",
@@ -292,6 +380,10 @@ func Test_verifier_getOpts(t *testing.T) {
 }
 
 func TestVerify(t *testing.T) {
+	cert := getCertificate(t, "leaf.pem")
+	intermediates := getCertificatePool(t, "intermediate.pem")
+	roots := getCertificatePool(t, "root.pem")
+
 	sv := getTestSignerVerifier(t)
 	pub, err := sv.PublicKey()
 	if err != nil {
@@ -343,6 +435,17 @@ func TestVerify(t *testing.T) {
 			name:    "SignatureNotFoundLegacyGroup",
 			path:    filepath.Join("..", "..", "..", "test", "images", "one-group-signed-legacy-group.sif"),
 			wantErr: &integrity.SignatureNotFoundError{},
+		},
+		{
+			name: "Certificate",
+			path: filepath.Join("..", "..", "..", "test", "images", "one-group-signed-dsse.sif"),
+			opts: []VerifyOpt{
+				OptVerifyWithCertificate(cert),
+				OptVerifyWithIntermediates(intermediates),
+				OptVerifyWithRoots(roots),
+			},
+			wantVerified:   [][]uint32{{1, 2}},
+			wantPublicKeys: []crypto.PublicKey{pub},
 		},
 		{
 			name: "Verifier",

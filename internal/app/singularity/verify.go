@@ -149,11 +149,19 @@ func newVerifier(opts []VerifyOpt) (verifier, error) {
 // more chains from c to a certificate in roots, using certificates in intermediates if needed.
 // This function does not do any revocation checking.
 func verifyCertificate(c *x509.Certificate, intermediates, roots *x509.CertPool) error {
+	/* Other ExtKeyUsages that may be needed:
+	x509.ExtKeyUsageServerAuth,
+	x509.ExtKeyUsageEmailProtection,
+	x509.ExtKeyUsageTimeStamping,
+	509.ExtKeyUsageOCSPSigning,
+	*/
+
 	opts := x509.VerifyOptions{
 		Intermediates: intermediates,
 		Roots:         roots,
 		KeyUsages: []x509.ExtKeyUsage{
 			x509.ExtKeyUsageCodeSigning,
+			x509.ExtKeyUsageClientAuth,
 		},
 	}
 

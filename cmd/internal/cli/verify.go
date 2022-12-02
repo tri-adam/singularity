@@ -8,6 +8,8 @@ package cli
 
 import (
 	"crypto"
+	"crypto/x509"
+	"errors"
 	"fmt"
 	"os"
 
@@ -26,6 +28,7 @@ var (
 	certificatePath              string // --certificate flag
 	certificateIntermediatesPath string // --certificate-intermediates flag
 	certificateRootsPath         string // --certificate-roots flag
+	ocspVerify                   bool   // --ocsp-verify flag
 	pubKeyPath                   string // --key flag
 	localVerify                  bool   // -l flag
 	jsonVerify                   bool   // -j flag
@@ -90,7 +93,7 @@ var verifyCertificateFlag = cmdline.Flag{
 	Value:        &certificatePath,
 	DefaultValue: "",
 	Name:         "certificate",
-	Usage:        "path to the certificate",
+	Usage:        "path to the x509 certificate",
 }
 
 // --certificate-intermediates
@@ -99,7 +102,7 @@ var verifyCertificateIntermediatesFlag = cmdline.Flag{
 	Value:        &certificateIntermediatesPath,
 	DefaultValue: "",
 	Name:         "certificate-intermediates",
-	Usage:        "path to pool of intermediate certificates",
+	Usage:        "path to pool of intermediate x509 certificates",
 }
 
 // --certificate-roots
@@ -108,7 +111,16 @@ var verifyCertificateRootsFlag = cmdline.Flag{
 	Value:        &certificateRootsPath,
 	DefaultValue: "",
 	Name:         "certificate-roots",
-	Usage:        "path to pool of root certificates",
+	Usage:        "path to pool of root x509 certificates",
+}
+
+// --ocsp-verify
+var verifyOCSPFlag = cmdline.Flag{
+	ID:           "ocspVerifyFlag",
+	Value:        &ocspVerify,
+	DefaultValue: false,
+	Name:         "ocsp-verify",
+	Usage:        "enable online revocation check for certificates",
 }
 
 // --key
@@ -172,6 +184,7 @@ func init() {
 		cmdManager.RegisterFlagForCmd(&verifyCertificateFlag, VerifyCmd)
 		cmdManager.RegisterFlagForCmd(&verifyCertificateIntermediatesFlag, VerifyCmd)
 		cmdManager.RegisterFlagForCmd(&verifyCertificateRootsFlag, VerifyCmd)
+		cmdManager.RegisterFlagForCmd(&verifyOCSPFlag, VerifyCmd)
 		cmdManager.RegisterFlagForCmd(&verifyPublicKeyFlag, VerifyCmd)
 		cmdManager.RegisterFlagForCmd(&verifyLocalFlag, VerifyCmd)
 		cmdManager.RegisterFlagForCmd(&verifyJSONFlag, VerifyCmd)
@@ -201,26 +214,69 @@ func doVerifyCmd(cmd *cobra.Command, cpath string) {
 
 	switch {
 	case cmd.Flag(verifyCertificateFlag.Name).Changed:
-		c, err := loadCertificate(certificatePath)
+		cert, err := loadCertificate(certificatePath)
 		if err != nil {
 			sylog.Fatalf("Failed to load certificate: %v", err)
 		}
-		opts = append(opts, singularity.OptVerifyWithCertificate(c))
+		opts = append(opts, singularity.OptVerifyWithCertificate(cert))
+
+		// If the certificate is self-signed certificate, we can use the certificate itself as one of the roots.
+		// Otherwise, we need the certificate of the authorities who signed the certificate.
+		var certificateIsSelfSigned bool
+
+		if string(cert.AuthorityKeyId) == string(cert.SubjectKeyId) {
+			selfRoot := x509.NewCertPool()
+			selfRoot.AddCert(cert)
+
+			opts = append(opts, singularity.OptVerifyWithRoots(selfRoot))
+			certificateIsSelfSigned = true
+		}
+
+		intermediateCertificates := certPool{}
+		rootCertificates := certPool{}
 
 		if cmd.Flag(verifyCertificateIntermediatesFlag.Name).Changed {
-			p, err := loadCertificatePool(certificateIntermediatesPath)
-			if err != nil {
-				sylog.Fatalf("Failed to load intermediate certificates: %v", err)
+			if certificateIsSelfSigned {
+				sylog.Infof("Ignore intermediate certificates due to the certificate being self-signed.")
+			} else {
+				intermediates, err := loadCertificatePool(certificateIntermediatesPath)
+				if err != nil {
+					sylog.Fatalf("Failed to load intermediate certificates: %v", err)
+				}
+
+				intermediateCertificates = intermediates
+				opts = append(opts, singularity.OptVerifyWithIntermediates(intermediates.x509CertPool()))
 			}
-			opts = append(opts, singularity.OptVerifyWithIntermediates(p))
 		}
 
 		if cmd.Flag(verifyCertificateRootsFlag.Name).Changed {
-			p, err := loadCertificatePool(certificateRootsPath)
-			if err != nil {
-				sylog.Fatalf("Failed to load root certificates: %v", err)
+			if certificateIsSelfSigned {
+				sylog.Infof("Ignore root certificates due to the certificate being self-signed.")
+			} else {
+				roots, err := loadCertificatePool(certificateRootsPath)
+				if err != nil {
+					sylog.Fatalf("Failed to load root certificates: %v", err)
+				}
+
+				rootCertificates = roots
+				opts = append(opts, singularity.OptVerifyWithRoots(roots.x509CertPool()))
 			}
-			opts = append(opts, singularity.OptVerifyWithRoots(p))
+		}
+
+		if cmd.Flag(verifyOCSPFlag.Name).Changed {
+			if certificateIsSelfSigned {
+				sylog.Infof("Ignore OCSP due to the certificate being self-signed.")
+			} else {
+				ocspErr := OnlineRevocationCheck(cert, intermediateCertificates, rootCertificates)
+				if errors.Is(ocspErr, errOCSPQuery) {
+					// TODO: We need to decide whether this should be strict or permissive.
+					sylog.Fatalf("OCSP server is unavailable: %v", ocspErr)
+				} else if ocspErr != nil {
+					sylog.Fatalf("OCSP verification has failed: %v", ocspErr)
+				}
+
+				sylog.Infof("OCSP validation has passed")
+			}
 		}
 
 	case cmd.Flag(verifyPublicKeyFlag.Name).Changed:
